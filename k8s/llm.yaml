@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llm
+  labels: { app: llm }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: llm }
+  template:
+    metadata:
+      labels: { app: llm }
+    spec:
+      containers:
+        - name: server
+          image: ghcr.io/ggml-org/llama.cpp:server
+          args:
+            - "-hf"
+            - "Qwen/Qwen2.5-0.5B-Instruct-GGUF:Q4_K_M"
+            - "--host"
+            - "0.0.0.0"
+            - "--port"
+            - "8000"
+            - "--ctx-size"
+            - "4096"
+            - "--alias"
+            - "qwen0.5b"
+          env:
+            - name: LLAMA_CACHE
+              value: /models
+          ports:
+            - containerPort: 8000
+              name: http
+          volumeMounts:
+            - name: models
+              mountPath: /models
+          resources:
+            requests: { cpu: "500m", memory: "1Gi" }
+            limits:   { cpu: "2",    memory: "3Gi" }
+          readinessProbe:
+            httpGet: { path: /health, port: 8000 }
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 60
+      volumes:
+        - name: models
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llm
+spec:
+  selector: { app: llm }
+  ports:
+    - port: 8000
+      targetPort: 8000
+      name: http

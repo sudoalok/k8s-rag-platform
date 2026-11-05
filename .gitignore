@@ -1,0 +1,15 @@
+# Terraform working files and state
+.terraform/
+*.tfstate
+*.tfstate.*
+
+# kubeconfig copy written by the kind provider (contains cluster keys)
+infra/rag-config
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Generated index. Rebuild with: app/build_index.py
+storage/

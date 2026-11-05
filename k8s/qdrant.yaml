@@ -1,0 +1,59 @@
+# A disk that survives the pod. Qdrant writes the slips here, so they are
+# not lost when the pod restarts.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qdrant-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qdrant
+  labels: { app: qdrant }
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate          # one pod at a time: two cannot share one disk
+  selector:
+    matchLabels: { app: qdrant }
+  template:
+    metadata:
+      labels: { app: qdrant }
+    spec:
+      containers:
+        - name: qdrant
+          image: qdrant/qdrant:v1.20.0
+          ports:
+            - containerPort: 6333
+              name: http
+            - containerPort: 6334
+              name: grpc
+          volumeMounts:
+            - name: data
+              mountPath: /qdrant/storage
+          resources:
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits:   { cpu: "1",    memory: "1Gi" }
+          readinessProbe:
+            httpGet: { path: /readyz, port: 6333 }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: qdrant-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qdrant
+spec:
+  selector: { app: qdrant }
+  ports:
+    - { port: 6333, targetPort: 6333, name: http }
+    - { port: 6334, targetPort: 6334, name: grpc }
